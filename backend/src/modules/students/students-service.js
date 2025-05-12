@@ -2,6 +2,21 @@ const { ApiError, sendAccountVerificationEmail } = require("../../utils");
 const { findAllStudents, findStudentDetail, findStudentToSetStatus, addOrUpdateStudent } = require("./students-repository");
 const { findUserById } = require("../../shared/repository");
 
+const validateEmail = (email) => {
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(email)) {
+        throw new ApiError(400, "Invalid email format");
+    }
+    return email.trim().toLowerCase();
+};
+
+const validateRequiredFields = (payload, fields) => {
+    const missingFields = fields.filter(field => !payload[field]);
+    if (missingFields.length > 0) {
+        throw new ApiError(400, `Missing required fields: ${missingFields.join(", ")}`);
+    }
+};
+
 const checkStudentId = async (id) => {
     const isStudentFound = await findUserById(id);
     if (!isStudentFound) {
@@ -32,6 +47,11 @@ const getStudentDetail = async (id) => {
 const addNewStudent = async (payload) => {
     const ADD_STUDENT_AND_EMAIL_SEND_SUCCESS = "Student added and verification email sent successfully.";
     const ADD_STUDENT_AND_BUT_EMAIL_SEND_FAIL = "Student added, but failed to send verification email.";
+
+    validateRequiredFields(payload, ["name", "email", "class", "section"]);
+
+    payload.email = validateEmail(payload.email);
+
     try {
         const result = await addOrUpdateStudent(payload);
         if (!result.status) {
@@ -50,6 +70,10 @@ const addNewStudent = async (payload) => {
 }
 
 const updateStudent = async (payload) => {
+    if (payload.email) {
+        payload.email = validateEmail(payload.email);
+    }
+
     const result = await addOrUpdateStudent(payload);
     if (!result.status) {
         throw new ApiError(500, result.message);
